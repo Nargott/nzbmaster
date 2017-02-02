@@ -1,0 +1,27 @@
+{
+  "name": "nzbmaster",
+  "version": "0.0.1",
+  "description": "Usenet app",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nargott/nzbmaster.git"
+  },
+  "keywords": [
+    "nzb",
+    "nntp",
+    "usenet"
+  ],
+  "author": "Somebody",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Nargott/nzbmaster/issues"
+  },
+  "homepage": "https://github.com/Nargott/nzbmaster#readme",
+  "dependencies": {
+    "sequelize": "^3.30.1"
+  }
+}
