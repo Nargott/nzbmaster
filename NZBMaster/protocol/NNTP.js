@@ -1,5 +1,6 @@
 let conf = require('./../config/config'),
     _ = require('lodash'),
+    UUID = require('uuid/v4'),
     dateFormat = require('dateformat'),
     cmdList = require('./commandsList');
 
@@ -10,21 +11,35 @@ class NNTP {
             end : '\r\n',
             notRecognized: 'What?'
         };
-
+        this.uuid = UUID();
         this.socket = socket;
+
+        //event listeners
+        this.socket.on('end', () => {
+            console.log('client disconnected');
+        });
+
+        socket.on('data', (data) => {
+            this.read(data);
+        });
+
+        // Send greeting
+        this.write(200, this.makeGreetingsMsg());
     }
 
     read(data) {
-        if (data.toString().trim().length > 0) { //only if command given
+        data = data.toString().toLowerCase().trim();
+        if (data.length > 0) { //only if command given
+            let cmdArray = data.split(' ');
             let cmd = _.find(cmdList, (o) => {
-                return o === data.toString().toLowerCase().trim();
+                return o === cmdArray[0];
             });
             if ('undefined' === typeof cmd) {
                 this.write(500, this.params.messages.notRecognized);
             } else {
                 switch (cmd) {
                     case 'date': {
-                        this.write(111,dateFormat((new Date()), "yyyyddmmHHMMss"));
+                        this.write(111, dateFormat((new Date()), "yyyyddmmHHMMss"));
                     } break;
                     case 'help': {
                         var msg = "Legal commands"+this.params.messages.end;
@@ -56,6 +71,8 @@ class NNTP {
         msg+='.';
         return msg;
     }
+
+
 }
 
 module.exports = NNTP;

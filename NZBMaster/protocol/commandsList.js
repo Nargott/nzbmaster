@@ -1,4 +1,5 @@
 module.exports = [
     "date",
-    "help"
+    "help",
+    "authinfo user Name|pass Password"
 ];

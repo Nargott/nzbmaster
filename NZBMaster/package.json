@@ -24,6 +24,7 @@
   "dependencies": {
     "dateformat": "^2.0.0",
     "lodash": "^4.17.4",
-    "sequelize": "^3.30.1"
+    "sequelize": "^3.30.1",
+    "uuid": "^3.0.1"
   }
 }
