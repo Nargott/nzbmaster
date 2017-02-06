@@ -1,6 +1,9 @@
 let sequelize = require('sequelize'),
     net = require('net'),
+    config = require('./config/config.js'),
     NNTP = require('./protocol/NNTP');
+
+
 let NNTPclients = [];
 let server = net.createServer();
 
@@ -9,7 +12,7 @@ server.on('error', (e) => {
         console.log('Address in use, retrying...');
         setTimeout(() => {
             server.close();
-            server.listen(PORT, HOST);
+            server.listen(config.server);
         }, 1000);
     }
 });
@@ -19,11 +22,10 @@ server.on('connection', (socket) => {
     server.getConnections((err, cnt) => {
         console.log("There is "+cnt+" active connections.");
     });
-    NNTPclients.push(new NNTP(socket));
+
+    NNTPclients.push(new NNTP(config, socket));
 });
 
-server.listen({
-    host: 'localhost',
-    port: 119,
-    exclusive: false
+config.db.init().then(() => {
+    server.listen(config.server);
 });
