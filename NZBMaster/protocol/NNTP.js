@@ -164,16 +164,15 @@ class NNTP {
                             return;
                         }
                         let articleId = cmdArray[1];
-                        articleId.slice(1, -1); articleId.slice(0, -1); //remove <>-symbols
-
-                        request(encodeUrl(
-                            this.config.http.host +
+                        //articleId.slice(1, -1); articleId.slice(0, -1); //remove <>-symbols
+                        let url = encodeUrl(this.config.http.host +
                             this.config.http.path +
                             '?' +
                             this.config.http.param +
                             '=' +
-                            articleId
-                        )).pipe(this.socket);
+                            articleId);
+                        console.log(url);
+                        request(url).pipe(this.socket);
                     } break;
                 }
             }
