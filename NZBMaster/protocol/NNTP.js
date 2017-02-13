@@ -164,7 +164,7 @@ class NNTP {
                             return;
                         }
                         let articleId = cmdArray[1];
-                        //articleId.slice(1, -1); articleId.slice(0, -1); //remove <>-symbols
+                        articleId.slice(1, -1); articleId.slice(0, -1); //remove <>-symbols
                         let url = encodeUrl(this.config.http.host +
                             this.config.http.path +
                             '?' +
