@@ -16,6 +16,12 @@ config.server.info = {
     yEnc: true
 };
 
+config.http = {
+    host: 'http://attic.attic.pw:8020',
+    path: '/article/get/',
+    param: 'mid'
+};
+
 //log
 config.log = require('./log.js');
 // config.log.debugJSON = (data) => {

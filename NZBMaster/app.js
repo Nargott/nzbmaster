@@ -3,7 +3,6 @@ let sequelize = require('sequelize'),
     config = require('./config/config.js'),
     NNTP = require('./protocol/NNTP');
 
-
 let NNTPclients = [];
 let server = net.createServer();
 

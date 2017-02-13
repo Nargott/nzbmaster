@@ -3,6 +3,9 @@ let conf = require('./../config/config'),
     UUID = require('uuid/v4'),
     Util = require('./../util/Util'),
     dateFormat = require('dateformat'),
+    http = require('http'),
+    encodeUrl = require('encodeurl'),
+    request = require('request'),
     cmdList = require('./commandsList');
 
 class NNTP {
@@ -155,12 +158,22 @@ class NNTP {
                             break;
                             return;
                         }
-                        if ((!cmdArray[1].endsWith('>')) || (!cmdArray[1].startsWith('<'))) {
-                            this.userName = cmdArray[2];
-                            this.write(381, 'PASS required');
+                        if ( (!cmdArray[1].startsWith('<')) || (!cmdArray[1].endsWith('>'))) {
+                            this.write(501, cmdList[4]); //send article command help
                             break;
                             return;
                         }
+                        let articleId = cmdArray[1];
+                        articleId.slice(1, -1); articleId.slice(0, -1); //remove <>-symbols
+
+                        request(encodeUrl(
+                            this.config.http.host +
+                            this.config.http.path +
+                            '?' +
+                            this.config.http.param +
+                            '=' +
+                            articleId
+                        )).pipe(this.socket);
                     } break;
                 }
             }
