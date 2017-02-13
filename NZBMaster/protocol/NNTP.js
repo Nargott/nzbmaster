@@ -25,7 +25,10 @@ class NNTP {
             ip: this.socket.remoteAddress
         })
             .then(con => {
+                console.log("Connection established #"+con.get('id'));
                 this.connection = con;
+                // Send greeting
+                this.write(201, this.makeGreetingsMsg());
             })
             .catch(err => {
                 this.config.log.error(err);
@@ -40,8 +43,10 @@ class NNTP {
             this.read(data);
         });
 
-        // Send greeting
-        this.write(200, this.makeGreetingsMsg());
+        socket.on('error', (err) => {
+            this.config.log.error(err);
+            this.close();
+        });
     }
 
     read(data) {
@@ -69,8 +74,7 @@ class NNTP {
                     }
                         break;
                     case 'quit': {
-                        this.close();
-                        this.socket.destroy();
+                        this.close(true);
                         return;
                     }
                         break;
@@ -78,7 +82,7 @@ class NNTP {
                         if ((cmdArray.length != 3)
                             || ((cmdArray[1] !== 'user') && ((cmdArray[1] !== 'pass')))
                         ) {
-                            this.write(501, cmdList[2]); //send authinfo command help
+                            this.write(501, cmdList[3]); //send authinfo command help
                             break;
                             return;
                         }
@@ -97,20 +101,42 @@ class NNTP {
                             })
                                 .then(user => {
                                     if (user == null) {
-                                        this.close();
-                                        this.socket.destroy();
-                                        return;
-                                    } else {
-                                        this.user = user;
-                                        this.write(281, "Ok");
+                                        this.close(true);
+                                        return Promise.reject(new Error("No such user!"));
                                     }
-
+                                    this.user = user;
+                                    let promises = [];
+                                    if (this.connection) {
+                                        this.connection.set('userId', user.id);
+                                        promises.push(this.connection.save());
+                                    } else {
+                                        promises.push(Promise.resolve());
+                                    }
+                                    // promises.push(
+                                    //     this.config.db.Models.Connection.count({where: {userId:user.id}})
+                                    // );
+                                    return Promise.all(promises);
+                                })
+                                .then(con => {
+                                    return this.config.db.Models.Connection.count({where: {userId: this.user.id}});
+                                })
+                                .then(result => {
+                                    console.log(result);
+                                    let conCount = (result) ? parseInt(0 + result) : 0;
+                                    let userMaxConn = (this.user) ? parseInt(0 + this.user.get('maxConnections')) : 0;
+                                    if (conCount <= userMaxConn) {
+                                        this.write(281, "Ok");
+                                    } else {
+                                        this.config.log.warning("Max user connection exceed");
+                                        this.write(502, "Max user connection exceed");
+                                        this.close();
+                                    }
                                 })
                                 .catch(err => {
                                     this.config.log.error(err);
                                 });
                         } else {
-                            this.write(501, cmdList[2]); //send authinfo command help
+                            this.write(501, cmdList[3]); //send authinfo command help
                             break;
                             return;
                         }
@@ -118,6 +144,24 @@ class NNTP {
                         //     && (cmdArray[1] == 'user'))
                     }
                         break;
+                    case 'article': {
+                        if (!this.user) {
+                            this.write(480, "Authentication required for command");
+                            break;
+                            return;
+                        }
+                        if (cmdArray.length != 2) {
+                            this.write(501, cmdList[4]); //send article command help
+                            break;
+                            return;
+                        }
+                        if ((!cmdArray[1].endsWith('>')) || (!cmdArray[1].startsWith('<'))) {
+                            this.userName = cmdArray[2];
+                            this.write(381, 'PASS required');
+                            break;
+                            return;
+                        }
+                    } break;
                 }
             }
         }
@@ -141,9 +185,12 @@ class NNTP {
         return msg;
     }
 
-    close() {
-        console.log('client disconnected');
-        this.connection.destroy();
+    close(socketToo = false) {
+        this.config.log.info('client disconnected');
+        this.userName = null;
+        this.user = null;
+        if (this.connection) this.connection.destroy();
+        if (this.socket && socketToo) this.socket.destroy();
         delete this;
     }
 
