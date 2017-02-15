@@ -4,7 +4,7 @@ let config = {};
 
 config.server = {
     host: 'localhost',
-    port: 1191,
+    port: 1192,
     exclusive: false
 };
 

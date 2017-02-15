@@ -53,7 +53,7 @@ class NNTP {
     }
 
     read(data) {
-        data = data.toString().toLowerCase().trim();
+        data = data.toString().trim();
         if (data.length > 0) { //only if command given
             let cmdArray = data.split(' ');
             let cmd = _.find(cmdList, (o) => {
@@ -62,7 +62,7 @@ class NNTP {
             if ('undefined' === typeof cmd) {
                 this.write(500, this.params.messages.notRecognized);
             } else {
-                switch (cmdArray[0]) {
+                switch (cmdArray[0].toLowerCase()) {
                     case 'date': {
                         this.write(111, dateFormat((new Date()), "yyyyddmmHHMMss"));
                     }
@@ -83,18 +83,18 @@ class NNTP {
                         break;
                     case 'authinfo': {
                         if ((cmdArray.length != 3)
-                            || ((cmdArray[1] !== 'user') && ((cmdArray[1] !== 'pass')))
+                            || ((cmdArray[1].toLowerCase() !== 'user') && ((cmdArray[1] !== 'pass')))
                         ) {
                             this.write(501, cmdList[3]); //send authinfo command help
                             break;
                             return;
                         }
-                        if ((cmdArray[1] == 'user')) {
+                        if ((cmdArray[1].toLowerCase() == 'user')) {
                             this.userName = cmdArray[2];
                             this.write(381, 'PASS required');
                             break;
                             return;
-                        } else if ((cmdArray[1] == 'pass') && this.userName != null) {
+                        } else if ((cmdArray[1].toLowerCase() == 'pass') && this.userName != null) {
                             //try to find this user in our DB
                             this.config.db.Models.User.findOne({
                                 where: {
@@ -164,15 +164,27 @@ class NNTP {
                             return;
                         }
                         let articleId = cmdArray[1];
-                        articleId.slice(1, -1); articleId.slice(0, -1); //remove <>-symbols
+                        articleId= articleId.slice(1, -1); //articleId.slice(0, -1); //remove <>-symbols
+                        conf.log.debug("Get article "+cmdArray[1]);
                         let url = encodeUrl(this.config.http.host +
                             this.config.http.path +
                             '?' +
                             this.config.http.param +
                             '=' +
                             articleId);
-                        console.log(url);
-                        request(url).pipe(this.socket);
+                        //request(url).pipe(this.socket);
+                        conf.log.debug("Request "+url);
+                        request(url, {}, (error, response, body) => {
+                            if (!error && response.statusCode == 200) {
+                                this.socket.write(body);
+                                this.socket.write('\n.');
+                            } else {
+                                if (typeof response != 'undefined')
+                                    conf.log.debug("Request filed with code "+response.statusCode);
+                                conf.log.error(error);
+                            }
+                        });
+
                     } break;
                 }
             }
