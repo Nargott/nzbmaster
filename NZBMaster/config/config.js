@@ -1,26 +1,6 @@
 let beautify = require("json-beautify");
 
-let config = {};
-
-config.server = {
-    host: 'localhost',
-    port: 1192,
-    exclusive: false
-};
-
-config.server.info = {
-    name: 'Nargott',
-    protocol: 'NNTP',
-    greetingMsg: 'Service Ready',
-    posting: false,
-    yEnc: true
-};
-
-config.http = {
-    host: 'http://attic.attic.pw:8020',
-    path: '/article/get/',
-    param: 'mid'
-};
+let config = require('./main');
 
 //log
 config.log = require('./log.js');

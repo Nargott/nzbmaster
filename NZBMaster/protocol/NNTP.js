@@ -1,4 +1,4 @@
-let conf = require('./../config/config'),
+const conf = require('./../config/config'),
     _ = require('lodash'),
     UUID = require('uuid/v4'),
     Util = require('./../util/Util'),
@@ -57,9 +57,10 @@ class NNTP {
         if (data.length > 0) { //only if command given
             let cmdArray = data.split(' ');
             let cmd = _.find(cmdList, (o) => {
-                return o.split(' ')[0] === cmdArray[0];
+                return o.split(' ')[0] === cmdArray[0].toLowerCase();
             });
             if ('undefined' === typeof cmd) {
+                this.config.log.debug("Unknown command: "+data);
                 this.write(500, this.params.messages.notRecognized);
             } else {
                 switch (cmdArray[0].toLowerCase()) {
@@ -83,8 +84,9 @@ class NNTP {
                         break;
                     case 'authinfo': {
                         if ((cmdArray.length != 3)
-                            || ((cmdArray[1].toLowerCase() !== 'user') && ((cmdArray[1] !== 'pass')))
+                            || ((cmdArray[1].toLowerCase() !== 'user') && ((cmdArray[1].toLowerCase() !== 'pass')))
                         ) {
+                            conf.log.debug("Bad authinfo command param: "+cmdArray);
                             this.write(501, cmdList[3]); //send authinfo command help
                             break;
                             return;
@@ -176,8 +178,8 @@ class NNTP {
                         conf.log.debug("Request "+url);
                         request(url, {}, (error, response, body) => {
                             if (!error && response.statusCode == 200) {
-                                this.socket.write(body);
-                                this.socket.write('\n.');
+                                this.write(220, body);
+                                this.write(220, '\n\n\n');
                             } else {
                                 if (typeof response != 'undefined')
                                     conf.log.debug("Request filed with code "+response.statusCode);
@@ -203,7 +205,7 @@ class NNTP {
         let msg = conf.server.info.name;
         msg += ' ' + conf.server.info.protocol;
         msg += ' ' + conf.server.info.greetingMsg;
-        msg += ' (posting is ' + (conf.server.info.posting ? 'not ' : '') + 'allowed)';
+        msg += ' (posting ' + (conf.server.info.posting ? 'allowed' : 'prohibited') + ')';
         msg += ' (yEnc ' + (conf.server.info.yEnc ? 'enabled' : 'disabled') + ')';
         msg += '.';
         return msg;

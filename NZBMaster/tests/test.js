@@ -1,32 +1,40 @@
-var assert = require('assert'),
+const assert = require('assert'),
     net = require('net'),
     zlib = require('zlib'),
     NNTP = require('node-nntp'),
-    child_process = require('child_process'),
-    server;
+    srv_conf = require('../config/main'),
+    child_process = require('child_process');
 
-//child_process.fork("app.js");
+let config = {
+  host: srv_conf.server.host,
+    port: srv_conf.server.port,
+    user: 'attic',
+    pass: 'attic',
+    article: '<Part1of55.80937093214A4FE8A462CF63BB1DAD57@1486126183.local>'
+};
+
+//let child = child_process.fork("app.js");
 
 describe('NNTP', function () {
     describe('#connect()', function () {
         it('should return a response when connection is successful', function (done) {
-            var nntp = new NNTP({host: 'localhost', port: 119});
+            var nntp = new NNTP({host: config.host, port: config.port});
 
             nntp.connect(function (error, response) {
                 assert.equal(null, error);
                 assert.equal(response.status, 201);
-                assert.equal(response.message, 'Nargott NNTP Service Ready (posting is allowed) (yEnc enabled).');
+                assert.equal(response.message, 'Nargott NNTP Service Ready (posting prohibited) (yEnc enabled).');
 
                 done();
             });
         });
 
         it('should return an error when connection is unsuccessful', function (done) {
-            var nntp = new NNTP({host: 'localhost', port: 120});
+            var nntp = new NNTP({host: config.host, port: (config.port-1)});
 
             nntp.connect(function (error, response) {
                 assert.notEqual(null, error);
-                assert.equal(error.message, 'connect ECONNREFUSED 127.0.0.1:120');
+                assert.equal(error.message, 'connect ECONNREFUSED '+config.host+':'+(config.port-1));
                 assert.equal(null, response);
 
                 done();
@@ -37,7 +45,7 @@ describe('NNTP', function () {
     describe('#authenticate()', function () {
 
         it('should return a response when authentication with password is successful', function (done) {
-            var nntp = new NNTP({host: 'localhost', port: 119, username: 'attic', password: 'attic'});
+            var nntp = new NNTP({host: config.host, port: config.port, username: config.user, password: config.pass});
 
             nntp.connect(function (error, response) {
                 nntp.authenticate(function (error, response) {
@@ -51,13 +59,11 @@ describe('NNTP', function () {
         });
 
         it('should return an error when authentication without a password', function (done) {
-
-                let nntp = new NNTP({host: 'localhost', port: 119, username: 'attic', password: 'attic'});
+                let nntp = new NNTP({host: config.host, port: config.port, username: config.user});
 
                 nntp.connect(function (error, response) {
                     nntp.authenticate(function (error, response) {
                         assert.notEqual(null, error);
-                        console.log(error);
                         assert.equal(error.message, 'Password is required');
                         assert.equal(null, response);
 
@@ -70,9 +76,10 @@ describe('NNTP', function () {
     describe('#cmaxConnections()', function () {
         it('should return response when connections is less than maxConnections', function (done) {
             for (let i=0; i<19; i++) {
-                var nntp = new NNTP({host: 'localhost', port: 119, username: 'attic', password: 'attic'});
+                var nntp = new NNTP({host: config.host, port: config.port, username: config.user, password: config.pass});
 
                 nntp.connectAndAuthenticate(function (error, response) {
+                    console.log(response);
                     assert.equal(null, error);
                     assert.equal(response.status, 281);
                     assert.equal(response.message, 'Ok');
@@ -84,8 +91,8 @@ describe('NNTP', function () {
 
         it('should return error when connections is more than maxConnections', function (done) {
             this.timeout(15000);
-            for (let i=0; i<21; i++) {
-                var nntp = new NNTP({host: 'localhost', port: 119, username: 'attic', password: 'attic'});
+            for (let i=0; i<19; i++) {
+                var nntp = new NNTP({host: config.host, port: config.port, username: config.user, password: config.pass});
 
                 nntp.connectAndAuthenticate(function (error, response) {
                     assert.equal(null, error);
@@ -107,20 +114,12 @@ describe('NNTP', function () {
     });
 
     describe('#getArticle()', function () {
-        it('should return pipe with article contents', function (done) {
+        it('should return article content', function (done) {
             this.timeout(50000);
-            for (let i=0; i<21; i++) {
-                var nntp = new NNTP({host: 'localhost', port: 119, username: 'attic', password: 'attic'});
-
-                nntp.connectAndAuthenticate(function (error, response) {
-                    assert.equal(null, error);
-                    assert.equal(response.status, 281);
-                    assert.equal(response.message, 'Ok');
-                });
-            }
-            var nntp = new NNTP({host: 'localhost', port: 119, username: 'attic', password: 'attic'});
+            var nntp = new NNTP({host: config.host, port: config.port, username: config.user, password: config.pass});
 
             nntp.connectAndAuthenticate(function (error, response) {
+                nntp.socket.write('ARTICLE ' + config.article + '\r\n');
                 assert.notEqual(null, error);
                 console.log(error.message);
                 assert.equal(error.message, 'Max user connection exceed');
