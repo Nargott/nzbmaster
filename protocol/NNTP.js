@@ -224,7 +224,7 @@ class NNTP {
     }
 
     message(code, msg, isService) {
-        return code.toString() + ' ' + msg + this.params.messages.nl + (isService ? '' : this.params.messages.end+this.params.messages.nl);
+        return code.toString() + ' ' + msg + (isService ? this.params.messages.nl : this.params.messages.end+this.params.messages.nl);
     }
 
     makeGreetingsMsg() {
