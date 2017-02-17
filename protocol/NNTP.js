@@ -1,7 +1,7 @@
-const conf = require('././config'),
+const conf = require('./../config/config'),
     _ = require('lodash'),
     UUID = require('uuid/v4'),
-    Util = require('././Util'),
+    Util = require('./../util/Util'),
     dateFormat = require('dateformat'),
     http = require('http'),
     encodeUrl = require('encodeurl'),
@@ -10,9 +10,12 @@ const conf = require('././config'),
 
 class NNTP {
     constructor(config, socket) {
-        this.params = {};
+        this.params = {
+            serviceDelimiter: '=y'
+        };
         this.params.messages = {
-            end: '\r\n',
+            nl: '\r\n',
+            end: '.',
             notRecognized: 'What?'
         };
         this.uuid = UUID();
@@ -52,6 +55,33 @@ class NNTP {
         });
     }
 
+    getArticle(cmdArray, cmdHelp, callback) {
+        if (!this.user) {
+            this.write(480, "Authentication required for command");
+            return;
+        }
+        if (cmdArray.length != 2) {
+            this.write(501, cmdHelp); //send command help
+            return;
+        }
+        if ( (!cmdArray[1].startsWith('<')) || (!cmdArray[1].endsWith('>'))) {
+            this.write(501, cmdHelp); //send command help
+            return;
+        }
+        let articleId = cmdArray[1];
+        articleId= articleId.slice(1, -1); //articleId.slice(0, -1); //remove <>-symbols
+        conf.log.debug("Get article "+cmdArray[1]);
+        let url = encodeUrl(this.config.http.host +
+            this.config.http.path +
+            '?' +
+            this.config.http.param +
+            '=' +
+            articleId);
+        //request(url).pipe(this.socket);
+        conf.log.debug("Request "+url);
+        request(url, {}, callback);
+    }
+
     read(data) {
         data = data.toString().trim();
         if (data.length > 0) { //only if command given
@@ -69,11 +99,11 @@ class NNTP {
                     }
                         break;
                     case 'help': {
-                        var msg = "Legal commands" + this.params.messages.end;
+                        var msg = "Legal commands" + this.params.messages.nl;
                         _.forEach(cmdList, (o) => {
-                            msg += '  ' + o + this.params.messages.end;
+                            msg += '  ' + o + this.params.messages.nl;
                         });
-                        msg += '.';
+                        msg += this.params.messages.end;
                         this.write(100, msg);
                     }
                         break;
@@ -150,55 +180,51 @@ class NNTP {
                     }
                         break;
                     case 'article': {
-                        if (!this.user) {
-                            this.write(480, "Authentication required for command");
-                            break;
-                            return;
-                        }
-                        if (cmdArray.length != 2) {
-                            this.write(501, cmdList[4]); //send article command help
-                            break;
-                            return;
-                        }
-                        if ( (!cmdArray[1].startsWith('<')) || (!cmdArray[1].endsWith('>'))) {
-                            this.write(501, cmdList[4]); //send article command help
-                            break;
-                            return;
-                        }
-                        let articleId = cmdArray[1];
-                        articleId= articleId.slice(1, -1); //articleId.slice(0, -1); //remove <>-symbols
-                        conf.log.debug("Get article "+cmdArray[1]);
-                        let url = encodeUrl(this.config.http.host +
-                            this.config.http.path +
-                            '?' +
-                            this.config.http.param +
-                            '=' +
-                            articleId);
-                        //request(url).pipe(this.socket);
-                        conf.log.debug("Request "+url);
-                        request(url, {}, (error, response, body) => {
+                        this.getArticle(cmdArray, cmdList[4], (error, response, body) => {
                             if (!error && response.statusCode == 200) {
-                                this.write(220, body);
-                                this.write(220, '\n\n\n');
+                                this.write(220, body, false);
                             } else {
                                 if (typeof response != 'undefined')
                                     conf.log.debug("Request filed with code "+response.statusCode);
                                 conf.log.error(error);
                             }
                         });
-
+                    } break;
+                    case 'head': {
+                        this.getArticle(cmdArray, cmdList[5], (error, response, body) => {
+                            if (!error && response.statusCode == 200) {
+                                let head = body.substr(0, body.indexOf(this.params.serviceDelimiter));
+                                this.write(220, head, false);
+                            } else {
+                                if (typeof response != 'undefined')
+                                    conf.log.debug("Request filed with code "+response.statusCode);
+                                conf.log.error(error);
+                            }
+                        });
+                    } break;
+                    case 'body': {
+                        this.getArticle(cmdArray, cmdList[5], (error, response, body) => {
+                            if (!error && response.statusCode == 200) {
+                                let head = body.substr(body.indexOf(this.params.serviceDelimiter), body.length);
+                                this.write(220, head, false);
+                            } else {
+                                if (typeof response != 'undefined')
+                                    conf.log.debug("Request filed with code "+response.statusCode);
+                                conf.log.error(error);
+                            }
+                        });
                     } break;
                 }
             }
         }
     }
 
-    write(code, msg) {
-        this.socket.write(this.message(code, msg));
+    write(code, msg, isService = true) {
+        this.socket.write(this.message(code, msg, isService));
     }
 
-    message(code, msg) {
-        return code.toString() + ' ' + msg + this.params.messages.end;
+    message(code, msg, isService) {
+        return code.toString() + ' ' + msg + this.params.messages.nl + (isService ? '' : this.params.messages.end+this.params.messages.nl);
     }
 
     makeGreetingsMsg() {

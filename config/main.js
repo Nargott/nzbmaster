@@ -17,4 +17,4 @@ module.exports = {
         path: '/article/get/',
         param: 'mid'
     }
-}
+};
