@@ -3,5 +3,7 @@ module.exports = [
     "help",
     "quit",
     "authinfo user Name|pass Password",
-    "article [MessageID|Number]"
+    "article [MessageID|Number]",
+    "head [MessageID|Number]",
+    "body [MessageID|Number]"
 ];

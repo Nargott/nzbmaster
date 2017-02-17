@@ -2,7 +2,7 @@ const assert = require('assert'),
     net = require('net'),
     zlib = require('zlib'),
     NNTP = require('node-nntp'),
-    srv_conf = require('../config/main'),
+    srv_conf = require('./main'),
     child_process = require('child_process');
 
 let config = {
