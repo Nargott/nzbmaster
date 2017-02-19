@@ -27,6 +27,7 @@
     "encodeurl": "^1.0.1",
     "json-beautify": "^1.0.1",
     "lodash": "^4.17.4",
+    "nitpin": "^0.2.0",
     "noogger": "^0.1.4",
     "request": "^2.79.0",
     "sequelize": "^3.30.1",

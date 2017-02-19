@@ -3,6 +3,7 @@ module.exports = {
         host: '127.0.0.1',
         port: 1190,
         exclusive: false,
+        encoding: 'binary',
         info : {
             name: 'Nargott',
             protocol: 'NNTP',

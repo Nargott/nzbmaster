@@ -31,7 +31,7 @@ class NNTP {
             ip: this.socket.remoteAddress
         })
             .then(con => {
-                console.log("Connection established #"+con.get('id'));
+                console.log("Connection established #" + con.get('id'));
                 this.connection = con;
                 // Send greeting
                 this.write(201, this.makeGreetingsMsg());
@@ -64,13 +64,13 @@ class NNTP {
             this.write(501, cmdHelp); //send command help
             return;
         }
-        if ( (!cmdArray[1].startsWith('<')) || (!cmdArray[1].endsWith('>'))) {
+        if ((!cmdArray[1].startsWith('<')) || (!cmdArray[1].endsWith('>'))) {
             this.write(501, cmdHelp); //send command help
             return;
         }
         let articleId = cmdArray[1];
-        articleId= articleId.slice(1, -1); //articleId.slice(0, -1); //remove <>-symbols
-        conf.log.debug("Get article "+cmdArray[1]);
+        articleId = articleId.slice(1, -1); //articleId.slice(0, -1); //remove <>-symbols
+        conf.log.debug("Get article " + cmdArray[1]);
         let url = encodeUrl(this.config.http.host +
             this.config.http.path +
             '?' +
@@ -78,8 +78,13 @@ class NNTP {
             '=' +
             articleId);
         //request(url).pipe(this.socket);
-        conf.log.debug("Request "+url);
-        request(url, {}, callback);
+        conf.log.debug("Request " + url);
+        request(url, {
+            encoding: this.config.server.encoding,
+            preambleCRLF: false,
+            postambleCRLF: false,
+            gzip: false
+        }, callback);
     }
 
     read(data) {
@@ -90,7 +95,7 @@ class NNTP {
                 return o.split(' ')[0] === cmdArray[0].toLowerCase();
             });
             if ('undefined' === typeof cmd) {
-                this.config.log.debug("Unknown command: "+data);
+                this.config.log.debug("Unknown command: " + data);
                 this.write(500, this.params.messages.notRecognized);
             } else {
                 switch (cmdArray[0].toLowerCase()) {
@@ -116,7 +121,7 @@ class NNTP {
                         if ((cmdArray.length != 3)
                             || ((cmdArray[1].toLowerCase() !== 'user') && ((cmdArray[1].toLowerCase() !== 'pass')))
                         ) {
-                            conf.log.debug("Bad authinfo command param: "+cmdArray);
+                            conf.log.debug("Bad authinfo command param: " + cmdArray);
                             this.write(501, cmdList[3]); //send authinfo command help
                             break;
                             return;
@@ -182,49 +187,57 @@ class NNTP {
                     case 'article': {
                         this.getArticle(cmdArray, cmdList[4], (error, response, body) => {
                             if (!error && response.statusCode == 200) {
-                                this.write(220, body, false);
+                                conf.log.debug("Request OK, code = " + response.statusCode);
+                                body = body.toString();
+                                let onlyBody = body.substr(body.indexOf(this.params.serviceDelimiter), body.length);
+                                this.write(221, '0 '+cmdArray[1]+' '+cmdArray[0]+this.params.messages.nl+body, false);
                             } else {
                                 if (typeof response != 'undefined')
-                                    conf.log.debug("Request filed with code "+response.statusCode);
+                                    conf.log.debug("Request filed with code " + response.statusCode);
                                 conf.log.error(error);
                             }
                         });
-                    } break;
+                    }
+                        break;
                     case 'head': {
                         this.getArticle(cmdArray, cmdList[5], (error, response, body) => {
                             if (!error && response.statusCode == 200) {
+                                conf.log.debug("Request OK, code = " + response.statusCode);
                                 let head = body.substr(0, body.indexOf(this.params.serviceDelimiter));
-                                this.write(220, head, false);
+                                this.write(221, '0 '+cmdArray[1]+' '+cmdArray[0]+this.params.messages.nl+head, false);
                             } else {
                                 if (typeof response != 'undefined')
-                                    conf.log.debug("Request filed with code "+response.statusCode);
+                                    conf.log.debug("Request filed with code " + response.statusCode);
                                 conf.log.error(error);
                             }
                         });
-                    } break;
+                    }
+                        break;
                     case 'body': {
                         this.getArticle(cmdArray, cmdList[5], (error, response, body) => {
                             if (!error && response.statusCode == 200) {
-                                let head = body.substr(body.indexOf(this.params.serviceDelimiter), body.length);
-                                this.write(220, head, false);
+                                conf.log.debug("Request OK, code = " + response.statusCode);
+                                let onlyBody = body.substr(body.indexOf(this.params.serviceDelimiter), body.length);
+                                this.write(221, '0 '+cmdArray[1]+' '+cmdArray[0]+this.params.messages.nl+onlyBody, false);
                             } else {
                                 if (typeof response != 'undefined')
-                                    conf.log.debug("Request filed with code "+response.statusCode);
+                                    conf.log.debug("Request filed with code " + response.statusCode);
                                 conf.log.error(error);
                             }
                         });
-                    } break;
+                    }
+                        break;
                 }
             }
         }
     }
 
     write(code, msg, isService = true) {
-        this.socket.write(this.message(code, msg, isService));
+        this.socket.write(this.message(code, msg, isService), this.config.server.encoding);
     }
 
     message(code, msg, isService) {
-        return code.toString() + ' ' + msg + (isService ? this.params.messages.nl : this.params.messages.end+this.params.messages.nl);
+        return code.toString() + ' ' + msg + (isService ? this.params.messages.nl : this.params.messages.end + this.params.messages.nl);
     }
 
     makeGreetingsMsg() {
@@ -243,6 +256,7 @@ class NNTP {
         this.user = null;
         if (this.connection) this.connection.destroy();
         if (this.socket && socketToo) this.socket.destroy();
+        //process.exit(1);
         delete this;
     }
 
