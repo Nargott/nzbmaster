@@ -5,5 +5,7 @@ module.exports = [
     "authinfo user Name|pass Password",
     "article [MessageID|Number]",
     "head [MessageID|Number]",
-    "body [MessageID|Number]"
+    "body [MessageID|Number]",
+    "mode reader",
+    "capabilities"
 ];

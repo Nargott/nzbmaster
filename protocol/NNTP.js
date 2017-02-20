@@ -5,8 +5,10 @@ const conf = require('./../config/config'),
     dateFormat = require('dateformat'),
     http = require('http'),
     encodeUrl = require('encodeurl'),
+    querystring = require("querystring"),
     request = require('request'),
-    cmdList = require('./commandsList');
+    cmdList = require('./inc/commandsList'),
+    nntpCodes = require('./inc/nntpCodes');
 
 class NNTP {
     constructor(config, socket) {
@@ -34,7 +36,7 @@ class NNTP {
                 console.log("Connection established #" + con.get('id'));
                 this.connection = con;
                 // Send greeting
-                this.write(201, this.makeGreetingsMsg());
+                this.write(nntpCodes.AUTH_AV_POSTING_NOT_ALLOWED.code, this.makeGreetingsMsg());
             })
             .catch(err => {
                 this.config.log.error(err);
@@ -57,15 +59,15 @@ class NNTP {
 
     getArticle(cmdArray, cmdHelp, callback) {
         if (!this.user) {
-            this.write(480, "Authentication required for command");
+            this.writeAnswer(nntpCodes.AUTH_REQUIRED);
             return;
         }
         if (cmdArray.length != 2) {
-            this.write(501, cmdHelp); //send command help
+            this.write(nntpCodes.SYNTAX_ERROR.code, cmdHelp); //send command help
             return;
         }
         if ((!cmdArray[1].startsWith('<')) || (!cmdArray[1].endsWith('>'))) {
-            this.write(501, cmdHelp); //send command help
+            this.write(nntpCodes.SYNTAX_ERROR.code, cmdHelp); //send command help
             return;
         }
         let articleId = cmdArray[1];
@@ -76,7 +78,7 @@ class NNTP {
             '?' +
             this.config.http.param +
             '=' +
-            articleId);
+            querystring.escape(articleId));
         //request(url).pipe(this.socket);
         conf.log.debug("Request " + url);
         request(url, {
@@ -85,10 +87,18 @@ class NNTP {
             postambleCRLF: false,
             gzip: false
         }, (error, response, body) => {
-            if (body.length == 0) {
-                conf.log.debug("430 No such article");
-                this.write(430, "No such article");
-                return;
+            console.log(response.headers);
+            if ((!body) || (body.length == 0)) {
+                if (response.headers['d-fin'] == '1') {
+                    conf.log.warning("No such article: "+articleId);
+                    this.writeAnswer(nntpCodes.NO_ARTICLE);
+                    return;
+                } else {
+                    conf.log.warning("No article body: "+articleId);
+                    conf.log.debug("Headers: "+JSON.stringify(response.headers));
+                    this.writeAnswer(nntpCodes.AUTH_PERM_UNAVAIL);
+                    return;
+                }
             }
             callback(error, response, body);
         });
@@ -103,11 +113,11 @@ class NNTP {
             });
             if ('undefined' === typeof cmd) {
                 this.config.log.debug("Unknown command: " + data);
-                this.write(500, this.params.messages.notRecognized);
+                this.writeAnswer(nntpCodes.UNKNOWN_COMMAND);
             } else {
                 switch (cmdArray[0].toLowerCase()) {
                     case 'date': {
-                        this.write(111, dateFormat((new Date()), "yyyyddmmHHMMss"));
+                        this.write(nntpCodes.CMD_DATETIME.code, dateFormat((new Date()), "yyyyddmmHHMMss"));
                     }
                         break;
                     case 'help': {
@@ -116,7 +126,32 @@ class NNTP {
                             msg += '  ' + o + this.params.messages.nl;
                         });
                         msg += this.params.messages.end;
-                        this.write(100, msg);
+                        this.write(nntpCodes.CMD_HELP.code, msg);
+                    }
+                        break;
+                    case 'mode': {
+                        if ((cmdArray.length != 2)
+                            || ((cmdArray[1].toLowerCase() !== 'reader'))
+                        ) {
+                            conf.log.warning("Bad mode reader command param: " + cmdArray);
+                            this.write(nntpCodes.SYNTAX_ERROR, cmdList[7]); //send mode reader command help
+                            break;
+                            return;
+                        }
+                        if (this.config.server.info.posting) {
+                            this.writeAnswer(nntpCodes.CMD_MODE_R_POSTING_ALLOWED);
+                        } else {
+                            this.writeAnswer(nntpCodes.CMD_MODE_R_POSTING_NOT_ALLOWED);
+                        }
+                    }
+                        break;
+                    case 'capabilities': {
+                        var msg = nntpCodes.CMD_CAPABILITIES.message + this.params.messages.nl;
+                        _.forEach(this.config.server.capabilities, (c) => {
+                            msg += '  ' + c + this.params.messages.nl;
+                        });
+                        msg += this.params.messages.end;
+                        this.write(nntpCodes.CMD_CAPABILITIES.code, msg);
                     }
                         break;
                     case 'quit': {
@@ -129,13 +164,13 @@ class NNTP {
                             || ((cmdArray[1].toLowerCase() !== 'user') && ((cmdArray[1].toLowerCase() !== 'pass')))
                         ) {
                             conf.log.debug("Bad authinfo command param: " + cmdArray);
-                            this.write(501, cmdList[3]); //send authinfo command help
+                            this.write(nntpCodes.SYNTAX_ERROR.code, cmdList[3]); //send authinfo command help
                             break;
                             return;
                         }
                         if ((cmdArray[1].toLowerCase() == 'user')) {
                             this.userName = cmdArray[2];
-                            this.write(381, 'PASS required');
+                            this.writeAnswer(nntpCodes.PASS_REQUIRED);
                             break;
                             return;
                         } else if ((cmdArray[1].toLowerCase() == 'pass') && this.userName != null) {
@@ -172,10 +207,10 @@ class NNTP {
                                     let conCount = (result) ? parseInt(0 + result) : 0;
                                     let userMaxConn = (this.user) ? parseInt(0 + this.user.get('maxConnections')) : 0;
                                     if (conCount <= userMaxConn) {
-                                        this.write(281, "Ok");
+                                        this.writeAnswer(nntpCodes.LOGIN_OK);
                                     } else {
                                         this.config.log.warning("Max user connection exceed");
-                                        this.write(502, "Max user connection exceed");
+                                        this.writeAnswer(nntpCodes.ERR_MAX_USER_CONNECTIONS);
                                         this.close();
                                     }
                                 })
@@ -183,7 +218,7 @@ class NNTP {
                                     this.config.log.error(err);
                                 });
                         } else {
-                            this.write(501, cmdList[3]); //send authinfo command help
+                            this.write(nntpCodes.SYNTAX_ERROR, cmdList[3]); //send authinfo command help
                             break;
                             return;
                         }
@@ -197,7 +232,11 @@ class NNTP {
                                 conf.log.debug("Request OK, code = " + response.statusCode);
                                 body = body.toString();
                                 let onlyBody = body.substr(body.indexOf(this.params.serviceDelimiter), body.length);
-                                this.write(220, '0 '+cmdArray[1]+' '+cmdArray[0]+this.params.messages.nl+body, false);
+                                this.write(
+                                    nntpCodes.CMD_ARTICLE.code,
+                                    '0 ' + cmdArray[1] + ' ' + cmdArray[0] + this.params.messages.nl + body,
+                                    false
+                                );
                             } else {
                                 if (typeof response != 'undefined')
                                     conf.log.debug("Request filed with code " + response.statusCode);
@@ -211,7 +250,11 @@ class NNTP {
                             if (!error && response.statusCode == 200) {
                                 conf.log.debug("Request OK, code = " + response.statusCode);
                                 let head = body.substr(0, body.indexOf(this.params.serviceDelimiter));
-                                this.write(221, '0 '+cmdArray[1]+' '+cmdArray[0]+this.params.messages.nl+head, false);
+                                this.write(
+                                    nntpCodes.CMD_HEAD.code,
+                                    '0 ' + cmdArray[1] + ' ' + cmdArray[0] + this.params.messages.nl + head,
+                                    false
+                                );
                             } else {
                                 if (typeof response != 'undefined')
                                     conf.log.debug("Request filed with code " + response.statusCode);
@@ -225,7 +268,11 @@ class NNTP {
                             if (!error && response.statusCode == 200) {
                                 conf.log.debug("Request OK, code = " + response.statusCode);
                                 let onlyBody = body.substr(body.indexOf(this.params.serviceDelimiter), body.length);
-                                this.write(222, '0 '+cmdArray[1]+' '+cmdArray[0]+this.params.messages.nl+onlyBody, false);
+                                this.write(
+                                    nntpCodes.CMD_BODY.code,
+                                    '0 ' + cmdArray[1] + ' ' + cmdArray[0] + this.params.messages.nl + onlyBody,
+                                    false
+                                );
                             } else {
                                 if (typeof response != 'undefined')
                                     conf.log.debug("Request filed with code " + response.statusCode);
@@ -237,6 +284,10 @@ class NNTP {
                 }
             }
         }
+    }
+
+    writeAnswer(nntpCode) {
+        this.socket.write(this.message(nntpCode.code, nntpCode.message, true), this.config.server.encoding);
     }
 
     write(code, msg, isService = true) {

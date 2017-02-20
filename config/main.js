@@ -10,7 +10,11 @@ module.exports = {
             greetingMsg: 'Service Ready',
             posting: false,
             yEnc: true
-        }
+        },
+        capabilities: [
+            "VERSION 2",
+            "READER"
+        ]
     },
 
     http : {
