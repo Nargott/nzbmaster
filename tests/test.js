@@ -147,24 +147,34 @@ describe('NNTP', function () {
             server0.getArticle('', config.article, function gotArticle(err, headers, body) {
                 assert.equal(null, err);
                 let ethalonArticleMD5 = {
-                    headers : md5(headers),
+                    headers: md5(headers),
                     body: md5(body)
                 };
-                console.log("Ethalon headers: "+ethalonArticleMD5.headers);
-                console.log("Ethalon body: "+ethalonArticleMD5.body);
+                console.log("Ethalon headers: " + ethalonArticleMD5.headers);
+                console.log("Ethalon body: " + ethalonArticleMD5.body);
                 let server = new Nitpin(config);
                 server.getArticle('', config.article, function gotArticle2(err, headers, body) {
                     let result = {
-                        headers : md5(headers),
+                        headers: md5(headers),
                         body: md5(body)
                     };
-                    console.log("Result headers: "+result.headers);
-                    console.log("Result body: "+result.body);
+                    console.log("Result headers: " + result.headers);
+                    console.log("Result body: " + result.body);
                     assert.equal(ethalonArticleMD5.headers, result.headers);
                     assert.equal(ethalonArticleMD5.body, result.body);
 
                     done();
                 });
+            });
+        });
+
+        it('should return no such article', function (done) {
+            this.timeout(50000);
+            let server = new Nitpin(config);
+            server.getArticle('', '<BAD_ARTICLE>', function gotArticle(err, headers, body) {
+                assert.notEqual(null, err);
+
+                done();
             });
         });
     });

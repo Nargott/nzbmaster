@@ -84,7 +84,14 @@ class NNTP {
             preambleCRLF: false,
             postambleCRLF: false,
             gzip: false
-        }, callback);
+        }, (error, response, body) => {
+            if (body.length == 0) {
+                conf.log.debug("430 No such article");
+                this.write(430, "No such article");
+                return;
+            }
+            callback(error, response, body);
+        });
     }
 
     read(data) {
