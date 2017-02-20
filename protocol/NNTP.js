@@ -197,7 +197,7 @@ class NNTP {
                                 conf.log.debug("Request OK, code = " + response.statusCode);
                                 body = body.toString();
                                 let onlyBody = body.substr(body.indexOf(this.params.serviceDelimiter), body.length);
-                                this.write(221, '0 '+cmdArray[1]+' '+cmdArray[0]+this.params.messages.nl+body, false);
+                                this.write(220, '0 '+cmdArray[1]+' '+cmdArray[0]+this.params.messages.nl+body, false);
                             } else {
                                 if (typeof response != 'undefined')
                                     conf.log.debug("Request filed with code " + response.statusCode);
@@ -225,7 +225,7 @@ class NNTP {
                             if (!error && response.statusCode == 200) {
                                 conf.log.debug("Request OK, code = " + response.statusCode);
                                 let onlyBody = body.substr(body.indexOf(this.params.serviceDelimiter), body.length);
-                                this.write(221, '0 '+cmdArray[1]+' '+cmdArray[0]+this.params.messages.nl+onlyBody, false);
+                                this.write(222, '0 '+cmdArray[1]+' '+cmdArray[0]+this.params.messages.nl+onlyBody, false);
                             } else {
                                 if (typeof response != 'undefined')
                                     conf.log.debug("Request filed with code " + response.statusCode);
